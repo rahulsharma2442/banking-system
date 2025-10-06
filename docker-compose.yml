@@ -1,0 +1,32 @@
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: banking-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: bankingdb
+      MYSQL_USER: bankinguser
+      MYSQL_PASSWORD: bankingpass
+    ports:
+      - "3307:3306"   # host:container
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  mongo:
+    image: mongo:6.0
+    container_name: banking-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7.2
+    container_name: banking-redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  mysql_data:
+  mongo_data:
