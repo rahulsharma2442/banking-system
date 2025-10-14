@@ -3,6 +3,7 @@ package com.example.bank.proj.queryfolder.service;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import com.example.bank.proj.commandfolder.events.AccountCreatedEvent;
@@ -19,6 +20,8 @@ public class AccountReadServiceImp implements AccountReadService {
     @Autowired
     private AccountReadRepository accountReadRepository;
 
+    @Async
+    @Override
     public void processAccountCreatedEvent(String message) {
         try {
             System.out.println("📩 Received Redis message: " + message);
@@ -29,6 +32,33 @@ public class AccountReadServiceImp implements AccountReadService {
             if (accountReadRepository.existsById(event.getAccountId())) {
                 System.out.println("⚠️ Account ID " + event.getAccountId() + " already exists. Skipping.");
                 return;}
+
+            AccountReadModel readModel = new AccountReadModel();
+            readModel.setId(event.getAccountId());
+            readModel.setUserId(event.getUserId());
+            readModel.setAccountType(event.getAccountType());
+            readModel.setBalance(event.getInitialDeposit());
+            readModel.setCreatedAt(event.getTimestamp());
+
+            accountReadRepository.save(readModel);
+            System.out.println("✅ Read Model Updated for Account ID: " + event.getAccountId());
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    @Override
+    @Async
+    public void moneyDepositEvent(String message) {
+        try {
+            System.out.println("📩 Received Redis message: " + message);
+
+            AccountCreatedEvent event = objectMapper.readValue(message, AccountCreatedEvent.class);
+
+            // // Idempotency: skip if already processed
+            // if (accountReadRepository.existsById(event.getAccountId())) {
+            //     System.out.println("⚠️ Account ID " + event.getAccountId() + " already exists. Skipping.");
+            //     return;}
 
             AccountReadModel readModel = new AccountReadModel();
             readModel.setId(event.getAccountId());
