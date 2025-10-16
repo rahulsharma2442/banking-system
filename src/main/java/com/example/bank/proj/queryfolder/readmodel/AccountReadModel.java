@@ -3,6 +3,7 @@ package com.example.bank.proj.queryfolder.readmodel;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import lombok.AllArgsConstructor;
@@ -14,7 +15,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class AccountReadModel {
-    private Long id;
+    @Id
+    private String id;
+    private Long mySqlId;
     private String accountNumber;
     private Long userId;
     private String accountType;

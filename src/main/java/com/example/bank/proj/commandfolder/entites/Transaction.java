@@ -14,6 +14,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -32,6 +33,7 @@ public class Transaction {
     // For account-to-account transfers: source → destination
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "source_account_id", nullable = true)
+    @NotBlank(message = "Source account cannot be blank for transfers")
     private Account sourceAccount;  // null for deposits into the bank
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -43,6 +45,7 @@ public class Transaction {
     private TransactionType type;  // CREDIT, DEBIT, TRANSFER, CHEQUE, EXTERNAL
 
     @Column(nullable = false)
+    @NotBlank(message = "Amount is mandatory")
     private BigDecimal amount;
 
     @Column

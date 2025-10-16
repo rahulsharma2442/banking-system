@@ -5,20 +5,15 @@ import java.time.LocalDateTime;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Getter
-@Setter
-public class AccountCreatedEvent {
+public class MoneyWithdrawEvent {
     private String accountNumber;
-    private Long userId;
-    private String accountType;
-    private BigDecimal initialDeposit; // Using BigDecimal to avoid floating-point issues
-    private LocalDateTime timestamp;
-    
+    private BigDecimal amount;
+    private String transactionId;
+    private String status; // e.g., "SUCCESS", "FAILED"
+    private LocalDateTime timeStamp;
 }

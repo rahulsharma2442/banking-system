@@ -11,7 +11,6 @@ import org.springframework.data.redis.listener.adapter.MessageListenerAdapter;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import com.example.bank.proj.queryfolder.service.AccountReadService;
-import com.example.bank.proj.sharedfolder.config.RedisListenerWrapper;
 
 
 @Configuration
@@ -50,6 +49,21 @@ public class RedisConfig {
         return new MessageListenerAdapter(accountReadService, "moneyDepositEvent");
     }
 
+    @Bean 
+    public MessageListenerAdapter moneyWithdrawAdapter(AccountReadService accountReadService) {
+        return new MessageListenerAdapter(accountReadService, "moneyWithdrawEvent");
+    }
+
+    @Bean
+    public MessageListenerAdapter moneyTransferInAdapter(AccountReadService accountReadService) {
+        return new MessageListenerAdapter(accountReadService, "moneyTransferInEvent");
+    }
+
+    @Bean
+    public MessageListenerAdapter moneyTransferOutAdapter(AccountReadService accountReadService) {
+        return new MessageListenerAdapter(accountReadService, "moneyTransferOutEvent");
+    }
+
     @Bean
     public RedisListenerWrapper accountCreatedListener(MessageListenerAdapter accountCreatedAdapter) {
         return new RedisListenerWrapper(accountCreatedAdapter, "accountEvents");
@@ -59,4 +73,20 @@ public class RedisConfig {
     public RedisListenerWrapper moneyDepositListener(MessageListenerAdapter moneyDepositAdapter) {
         return new RedisListenerWrapper(moneyDepositAdapter, "depositEvents");
     }
+
+    @Bean
+    public RedisListenerWrapper moneyWithdrawListener(MessageListenerAdapter moneyWithdrawAdapter) {
+        return new RedisListenerWrapper(moneyWithdrawAdapter, "withdrawEvents");
+    }
+    
+    @Bean
+    public RedisListenerWrapper moneyTransferInListener(MessageListenerAdapter moneyTransferInAdapter) {
+        return new RedisListenerWrapper(moneyTransferInAdapter, "transferInEvents");
+    }
+
+    @Bean
+    public RedisListenerWrapper moneyTransferOutListener(MessageListenerAdapter moneyTransferOutAdapter) {
+        return new RedisListenerWrapper(moneyTransferOutAdapter, "transferOutEvents");
+    }
+
 }

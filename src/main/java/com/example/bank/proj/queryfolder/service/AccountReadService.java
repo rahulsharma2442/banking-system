@@ -8,5 +8,8 @@ public interface AccountReadService {
 
     void processAccountCreatedEvent(String message);
     void moneyDepositEvent(String message);
+    void moneyWithdrawEvent(String message);
+    void moneyTransferInEvent(String message);
+    void moneyTransferOutEvent(String message);
     List<AccountReadModel> getAllAccounts();
 }
