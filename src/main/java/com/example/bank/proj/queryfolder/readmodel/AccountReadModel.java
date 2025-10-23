@@ -1,7 +1,7 @@
 package com.example.bank.proj.queryfolder.readmodel;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
@@ -22,6 +22,6 @@ public class AccountReadModel {
     private Long userId;
     private String accountType;
     private BigDecimal balance;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private String createdAt;
+    private String updatedAt;
 }

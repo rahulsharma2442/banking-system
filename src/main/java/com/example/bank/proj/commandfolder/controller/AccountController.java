@@ -2,6 +2,8 @@ package com.example.bank.proj.commandfolder.controller;
 
 import java.math.BigDecimal;
 
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,6 +16,7 @@ import com.example.bank.proj.commandfolder.commands.MoneyWithdrawCommand;
 import com.example.bank.proj.commandfolder.dto.SuccessMessage;
 import com.example.bank.proj.commandfolder.dto.TransactionIdGenerator;
 import com.example.bank.proj.commandfolder.service.CommandService;
+
 
 @RestController
 @RequestMapping("/accounts")
@@ -111,5 +114,14 @@ public class AccountController {
         }
     }
     
+    @GetMapping("/accountHistory/{id}")
+    public SuccessMessage getAccountHistory(@PathVariable String id) {
+        return commandService.getAccountHistory(id);
+    }
 
+    @GetMapping("/accountReplay/{id}")
+        public SuccessMessage getAccountReply(@PathVariable String id){
+            return commandService.replayEvents(id);
+        
+    }
 }

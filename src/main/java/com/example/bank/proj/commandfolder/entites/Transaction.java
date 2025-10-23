@@ -1,7 +1,7 @@
 package com.example.bank.proj.commandfolder.entites;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -52,5 +52,5 @@ public class Transaction {
     private String reference;  // optional: cheque number, UPI ref, etc.
 
     @Column(nullable = false)
-    private LocalDateTime createdAt;
+    private String createdAt;
 }

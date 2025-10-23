@@ -13,6 +13,5 @@ public class CreateAccountCommand {
     private Long userId;
     private String accountType;
     private BigDecimal initialDeposit; // Using BigDecimal to avoid floating-point issues
-
 }
 

@@ -14,5 +14,5 @@ public class UserCreatedEvent {
     private String email;
     private String phoneNumber;
     private String role;
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private String createdAt = LocalDateTime.now().toString();
 }

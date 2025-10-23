@@ -1,7 +1,5 @@
 package com.example.bank.proj.commandfolder.entites;
 
-import java.time.LocalDateTime;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -38,5 +36,5 @@ public class EventStore {
     private String eventData;       // JSON payload of the event
 
     @Column(nullable = false)
-    private LocalDateTime createdAt;
+    private String createdAt;
 }

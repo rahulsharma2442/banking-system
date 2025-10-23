@@ -10,4 +10,6 @@ public interface CommandService {
     SuccessMessage fundDeposit(String accountNumber, BigDecimal amount, String transactionId);
     SuccessMessage moneyWithdraw(String accountNumber, BigDecimal amount, String transactionId);
     SuccessMessage accountToAccountTransfer(String fromAccount, String toAccount, BigDecimal amount, String transactionId);
+    SuccessMessage getAccountHistory(String AccountNumber);
+    SuccessMessage replayEvents(String accountNumber);
 }

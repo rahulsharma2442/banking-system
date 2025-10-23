@@ -1,7 +1,7 @@
 package com.example.bank.proj.commandfolder.entites;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -46,10 +46,10 @@ public class Account {
     private String accountType;  // e.g., SAVINGS, CURRENT, etc.
 
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private String createdAt;
 
     @Column(nullable = false)
-    private LocalDateTime updatedAt;
+    private String updatedAt;
 
     @Column(nullable = false)
     private boolean isActive;

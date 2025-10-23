@@ -5,10 +5,12 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.example.bank.proj.commandfolder.commands.CreateAccountCommand;
@@ -21,10 +23,12 @@ import com.example.bank.proj.commandfolder.events.AccountCreatedEvent;
 import com.example.bank.proj.commandfolder.events.MoneyDepositEvent;
 import com.example.bank.proj.commandfolder.events.MoneyTransferInEvent;
 import com.example.bank.proj.commandfolder.events.MoneyTransferOutEvent;
+import com.example.bank.proj.commandfolder.events.MoneyWithdrawEvent;
 import com.example.bank.proj.commandfolder.repositorioes.AccountRepository;
 import com.example.bank.proj.commandfolder.repositorioes.EventStoreRepository;
 import com.example.bank.proj.commandfolder.repositorioes.UserRepository;
 import com.example.bank.proj.sharedfolder.publisher.AccountEventPublisher;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.transaction.Transactional;
 
@@ -43,10 +47,16 @@ public class CommandServiceImp implements CommandService {
     @Autowired
     private StringRedisTemplate redisTemplate;
 
+    @Autowired
+    private EmailService emailService;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
     @Override
     public SuccessMessage createAccount(CreateAccountCommand command) {
-        // ✅ Use Optional handling properly
-        User user = userRepository.findById(command.getUserId())
+        try{
+              User user = userRepository.findById(command.getUserId())
                 .orElse(null);
         System.out.println("User found: " + user);
         if (user == null) {
@@ -66,8 +76,9 @@ public class CommandServiceImp implements CommandService {
         account.setAccountType(command.getAccountType());
         account.setBalance(command.getInitialDeposit());
         account.setActive(true);
-        account.setCreatedAt(LocalDateTime.now());
-        account.setUpdatedAt(LocalDateTime.now());
+        account.setCreatedAt(LocalDateTime.now().toString());
+        account.setUpdatedAt(LocalDateTime.now().toString());
+       
 
         // ✅ Use count() + 1 for account number generation (still fine for demo)
         String accountNumber = String.format("%08d", accountRepository.count() + 1);
@@ -83,11 +94,12 @@ public class CommandServiceImp implements CommandService {
                 account.getBalance(),
                 account.getCreatedAt()
         );
-
+        ObjectMapper mapper = new ObjectMapper();
+        String jsonEvent = mapper.writeValueAsString(event);
         EventStore eventStore = new EventStore();
         eventStore.setEventType("AccountCreatedEvent");
-        eventStore.setEventData(event.toString());
-        eventStore.setCreatedAt(LocalDateTime.now());
+        eventStore.setEventData(jsonEvent);
+        eventStore.setCreatedAt(LocalDateTime.now().toString());
         eventStore.setAggregateId(account.getAccountNumber());
         eventStore.setAggregateType("Account");
         eventStoreRepository.save(eventStore);
@@ -96,21 +108,35 @@ public class CommandServiceImp implements CommandService {
         eventPublisher.publishAccountEvent("accountEvents", event);
 
         return new SuccessMessage("Account created successfully", account, true, 201);
+        }
+        catch(Exception e){
+            e.printStackTrace();
+            return new SuccessMessage("Error creating account: " + e.getMessage(), null, false, 500);
+        }
+        // ✅ Use Optional handling properly
+      
     }
 
     @Override
     public SuccessMessage userRegistration(UserRegisterCommand command) {
+        String token = UUID.randomUUID().toString()+"-"+LocalDateTime.now().toString();
+        command.setPassword(passwordEncoder.encode(command.getPassword()));
         User user = new User();
-        user.setName(command.getUsername());
+        String uname = command.getEmail().split("@")[0]+UUID.randomUUID().toString().substring(0,5);
+        user.setUsername(uname);
+        user.setName(command.getName());
         user.setPassword(command.getPassword());
         user.setEmail(command.getEmail());
-        user.setCreatedAt(LocalDateTime.now());
-        user.setUpdatedAt(LocalDateTime.now());
+        user.setCreatedAt(LocalDateTime.now().toString());
+        user.setUpdatedAt(LocalDateTime.now().toString());
         user.setRole("USER");
         user.setEnabled(true);
-
+        user.setVerified(false);
+        user.setToken(token);
+         
         userRepository.save(user);
-        return new SuccessMessage("User registered successfully", user, true, 201);
+        // emailService.sendRegistrationEmail(user.getEmail(), "http://localhost:8080/api/v1/command/verify-email?token="+token);
+        return new SuccessMessage("User registered successfully please verify your email", user, true, 201);
     }
 
     @Override
@@ -134,29 +160,37 @@ public class CommandServiceImp implements CommandService {
 
             // Update balance
             account.setBalance(account.getBalance().add(amount));
-            account.setUpdatedAt(LocalDateTime.now());
+            account.setUpdatedAt(LocalDateTime.now().toString());
             accountRepository.save(account);
 
-            // Publish MoneyDepositEvent
+            // Create MoneyDepositEvent
             MoneyDepositEvent event = new MoneyDepositEvent();
             event.setAccountNumber(accountNumber);
             event.setAmount(amount);
             event.setTransactionId(transactionId);
             event.setStatus("SUCCESS");
-            event.setTimeStamp(LocalDateTime.now());
+            event.setTimeStamp(LocalDateTime.now().toString());
 
+            // Serialize event to JSON before storing
+            ObjectMapper mapper = new ObjectMapper();
+            String jsonEvent = mapper.writeValueAsString(event);
+
+            // Save to EventStore
             EventStore eventStore = new EventStore();
             eventStore.setEventType("MoneyDepositEvent");
-            eventStore.setEventData(event.toString());
-            eventStore.setCreatedAt(LocalDateTime.now());
+            eventStore.setEventData(jsonEvent);   // <-- store JSON
+            eventStore.setCreatedAt(LocalDateTime.now().toString());
             eventStore.setAggregateId(account.getAccountNumber());
             eventStore.setAggregateType("Account");
             eventStoreRepository.save(eventStore);
+
+            // Publish event
             eventPublisher.publishAccountEvent("depositEvents", event);
 
             return new SuccessMessage("Amount deposited successfully", account, true, 200);
 
         } catch (Exception e) {
+            e.printStackTrace();
             return new SuccessMessage("Error occurred: " + e.getMessage(), null, false, 500);
         }
     }
@@ -164,7 +198,6 @@ public class CommandServiceImp implements CommandService {
     @Override
     @Transactional
     public SuccessMessage moneyWithdraw(String accountNumber, BigDecimal amount, String transactionId) {
-        // Implementation for money withdrawal
         try {
             String key = "txn:" + transactionId;
 
@@ -188,24 +221,31 @@ public class CommandServiceImp implements CommandService {
 
             // Update balance
             account.setBalance(account.getBalance().subtract(amount));
-            account.setUpdatedAt(LocalDateTime.now());
+            account.setUpdatedAt(LocalDateTime.now().toString());
             accountRepository.save(account);
 
-            // Publish MoneyWithdrawEvent
-            MoneyDepositEvent event = new MoneyDepositEvent();
+            // Create MoneyWithdrawEvent
+            MoneyWithdrawEvent event = new MoneyWithdrawEvent();
             event.setAccountNumber(accountNumber);
             event.setAmount(amount);
             event.setTransactionId(transactionId);
             event.setStatus("SUCCESS");
-            event.setTimeStamp(LocalDateTime.now());
+            event.setTimeStamp(LocalDateTime.now().toString());
 
+            // Serialize to JSON
+            ObjectMapper mapper = new ObjectMapper();
+            String jsonEvent = mapper.writeValueAsString(event);
+
+            // Save to EventStore
             EventStore eventStore = new EventStore();
             eventStore.setEventType("MoneyWithdrawEvent");
-            eventStore.setEventData(event.toString());
-            eventStore.setCreatedAt(LocalDateTime.now());
+            eventStore.setEventData(jsonEvent); // <-- store JSON
+            eventStore.setCreatedAt(LocalDateTime.now().toString());
             eventStore.setAggregateId(account.getAccountNumber());
             eventStore.setAggregateType("Account");
             eventStoreRepository.save(eventStore);
+
+            // Publish event
             eventPublisher.publishAccountEvent("withdrawEvents", event);
 
             return new SuccessMessage("Amount withdrawn successfully", account, true, 200);
@@ -217,21 +257,17 @@ public class CommandServiceImp implements CommandService {
     @Override
     @Transactional
     public SuccessMessage accountToAccountTransfer(String sourceAccountNumber, String destinationAccountNumber, BigDecimal amount, String transactionId) {
-        // Implementation for account-to-account transfer
         try {
             String key = "txn:" + transactionId;
 
-            // Atomic idempotency check
-            Boolean isNew = redisTemplate.opsForValue()
-                    .setIfAbsent(key, "Done", 10, TimeUnit.MINUTES);
+            // Idempotency check
+            Boolean isNew = redisTemplate.opsForValue().setIfAbsent(key, "Done", 10, TimeUnit.MINUTES);
             if (Boolean.FALSE.equals(isNew)) {
                 return new SuccessMessage("Transaction already processed", null, false, 409);
             }
 
-            // Pessimistic lock on both accounts (order by account number to avoid deadlocks)
-            Account sourceAccount;
-            Account destinationAccount;
-
+            // Pessimistic lock on accounts to avoid deadlock
+            Account sourceAccount, destinationAccount;
             if (sourceAccountNumber.compareTo(destinationAccountNumber) < 0) {
                 sourceAccount = accountRepository.findAccountForUpdate(sourceAccountNumber);
                 destinationAccount = accountRepository.findAccountForUpdate(destinationAccountNumber);
@@ -239,59 +275,144 @@ public class CommandServiceImp implements CommandService {
                 destinationAccount = accountRepository.findAccountForUpdate(destinationAccountNumber);
                 sourceAccount = accountRepository.findAccountForUpdate(sourceAccountNumber);
             }
+
             if (sourceAccount == null || destinationAccount == null) {
                 return new SuccessMessage("One or both accounts not found", null, false, 404);
             }
+
             // Check for sufficient balance
             if (sourceAccount.getBalance().compareTo(amount) < 0) {
                 return new SuccessMessage("Insufficient balance in source account", null, false, 400);
             }
-            // Check for sufficient balance in destination account
-            if (destinationAccount.getBalance().compareTo(amount) < 0) {
-                return new SuccessMessage("Insufficient balance in destination account", null, false, 400);
-            }
-            // Perform the transfer
+
+            // Perform transfer
             sourceAccount.setBalance(sourceAccount.getBalance().subtract(amount));
             destinationAccount.setBalance(destinationAccount.getBalance().add(amount));
             accountRepository.save(sourceAccount);
             accountRepository.save(destinationAccount);
 
-            MoneyTransferOutEvent event = new MoneyTransferOutEvent();
-            event.setSourceAccountNumber(sourceAccountNumber);
-            event.setDestinationAccountNumber(destinationAccountNumber);
-            event.setAmount(amount);
-            event.setTransactionId(transactionId);
-            event.setStatus("SUCCESS");
-            event.setTimeStamp(LocalDateTime.now());
+            ObjectMapper mapper = new ObjectMapper();
 
-            EventStore eventStore = new EventStore();
-            eventStore.setEventType("AccountToAccountTransferEvent");
-            eventStore.setEventData(event.toString());
-            eventStore.setCreatedAt(LocalDateTime.now());
-            eventStore.setAggregateId(sourceAccount.getAccountNumber());
-            eventStore.setAggregateType("Account");
+            // Out event for source account
+            MoneyTransferOutEvent outEvent = new MoneyTransferOutEvent();
+            outEvent.setSourceAccountNumber(sourceAccountNumber);
+            outEvent.setDestinationAccountNumber(destinationAccountNumber);
+            outEvent.setAmount(amount);
+            outEvent.setTransactionId(transactionId);
+            outEvent.setStatus("SUCCESS");
+            outEvent.setTimeStamp(LocalDateTime.now().toString());
 
+            EventStore outEventStore = new EventStore();
+            outEventStore.setEventType("MoneyTransferOutEvent");
+            outEventStore.setEventData(mapper.writeValueAsString(outEvent)); // serialize
+            outEventStore.setCreatedAt(LocalDateTime.now().toString());
+            outEventStore.setAggregateId(sourceAccountNumber);
+            outEventStore.setAggregateType("Account");
+            eventStoreRepository.save(outEventStore);
+            eventPublisher.publishAccountEvent("transferOutEvents", outEvent);
+
+            // In event for destination account
             MoneyTransferInEvent inEvent = new MoneyTransferInEvent();
             inEvent.setSourceAccountNumber(sourceAccountNumber);
             inEvent.setDestinationAccountNumber(destinationAccountNumber);
             inEvent.setAmount(amount);
             inEvent.setTransactionId(transactionId);
             inEvent.setStatus("SUCCESS");
-            inEvent.setTimeStamp(LocalDateTime.now());
-            eventStoreRepository.save(eventStore);
-            eventPublisher.publishAccountEvent("transferOutEvents", event);
+            inEvent.setTimeStamp(LocalDateTime.now().toString());
+
+            EventStore inEventStore = new EventStore();
+            inEventStore.setEventType("MoneyTransferInEvent");
+            inEventStore.setEventData(mapper.writeValueAsString(inEvent)); // serialize
+            inEventStore.setCreatedAt(LocalDateTime.now().toString());
+            inEventStore.setAggregateId(destinationAccountNumber);
+            inEventStore.setAggregateType("Account");
+            eventStoreRepository.save(inEventStore);
             eventPublisher.publishAccountEvent("transferInEvents", inEvent);
-            Map<String,Object> data = new HashMap<>();
-            data.put("sourceAccount", sourceAccount);
-            data.put("destinationAccount", destinationAccount);
+
+            // Prepare response
+            Map<String, Object> data = new HashMap<>();
+            data.put("sourceAccount", sourceAccount.getAccountNumber());
+            data.put("destinationAccount", destinationAccount.getAccountNumber());
             data.put("amountTransferred", amount);
             data.put("transactionId", transactionId);
             data.put("timeStamp", LocalDateTime.now().toString());
+
             return new SuccessMessage("Transfer successful", data, true, 200);
+
         } catch (Exception e) {
             return new SuccessMessage("Error occurred: " + e.getMessage(), null, false, 500);
         }
+    }
 
-}
+    @Override
+    public SuccessMessage getAccountHistory(String accountNumber) {
+
+        List<EventStore> events = eventStoreRepository.findAccountHistoryByAccountNumber(accountNumber);
+        if (events.isEmpty()) {
+            return new SuccessMessage("No events found for this account", null, false, 404);
+        }
+        List<Object> eventList = new java.util.ArrayList<>();
+        for (EventStore event : events) {
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("eventType", event.getEventType());
+            eventData.put("eventData", event.getEventData());
+            eventData.put("createdAt", event.getCreatedAt().toString());
+            eventList.add(eventData);
+        }
+
+        return new SuccessMessage("Account history retrieved successfully", eventList, true, 200);
+    }
+
+    @Override
+    public SuccessMessage replayEvents(String accountNumber) {
+        try {
+            List<EventStore> events = eventStoreRepository.findAccountHistoryByAccountNumber(accountNumber);
+            if (events.isEmpty()) {
+                return new SuccessMessage("No events found for this account", null, false, 404);
+            }
+
+            BigDecimal balance = BigDecimal.ZERO;
+            ObjectMapper mapper = new ObjectMapper();
+
+            for (EventStore event : events) {
+                String eventDataJson = event.getEventData(); // JSON stored in DB
+                switch (event.getEventType()) {
+                    case "AccountCreatedEvent" -> {
+                        AccountCreatedEvent createdEvent = mapper.readValue(eventDataJson, AccountCreatedEvent.class);
+                        balance = createdEvent.getInitialDeposit();
+                        System.out.println("Replayed AccountCreatedEvent: initialDeposit=" + balance);
+                    }
+                    case "MoneyDepositEvent" -> {
+                        MoneyDepositEvent depositEvent = mapper.readValue(eventDataJson, MoneyDepositEvent.class);
+                        balance = balance.add(depositEvent.getAmount());
+                        System.out.println("Replayed MoneyDepositEvent: amount=" + depositEvent.getAmount());
+                    }
+                    case "MoneyWithdrawEvent" -> {
+                        MoneyDepositEvent withdrawEvent = mapper.readValue(eventDataJson, MoneyDepositEvent.class);
+                        balance = balance.subtract(withdrawEvent.getAmount());
+                        System.out.println("Replayed MoneyWithdrawEvent: amount=" + withdrawEvent.getAmount());
+                    }
+                    case "MoneyTransferOutEvent" -> {
+                        MoneyTransferOutEvent outEvent = mapper.readValue(eventDataJson, MoneyTransferOutEvent.class);
+                        balance = balance.subtract(outEvent.getAmount());
+                        System.out.println("Replayed MoneyTransferOutEvent: amount=" + outEvent.getAmount());
+                    }
+                    case "MoneyTransferInEvent" -> {
+                        MoneyTransferInEvent inEvent = mapper.readValue(eventDataJson, MoneyTransferInEvent.class);
+                        balance = balance.add(inEvent.getAmount());
+                        System.out.println("Replayed MoneyTransferInEvent: amount=" + inEvent.getAmount());
+                    }
+                    default ->
+                        System.out.println("Unknown event type: " + event.getEventType());
+                }
+            }
+
+            return new SuccessMessage("Events replayed successfully", balance, true, 200);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new SuccessMessage("Error occurred: " + e.getMessage(), null, false, 500);
+        }
+    }
 
 }

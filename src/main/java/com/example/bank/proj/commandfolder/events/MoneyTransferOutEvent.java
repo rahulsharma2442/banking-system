@@ -13,5 +13,5 @@ public class MoneyTransferOutEvent {
     private String transactionId;
     private String status; // e.g., "SUCCESS", "FAILED"
     private java.math.BigDecimal amount;
-    private java.time.LocalDateTime timeStamp;
+    private String timeStamp;
 }

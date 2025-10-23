@@ -1,8 +1,6 @@
 package com.example.bank.proj.commandfolder.events;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
@@ -19,6 +17,6 @@ public class AccountCreatedEvent {
     private Long userId;
     private String accountType;
     private BigDecimal initialDeposit; // Using BigDecimal to avoid floating-point issues
-    private LocalDateTime timestamp;
+    private String timestamp;
     
 }

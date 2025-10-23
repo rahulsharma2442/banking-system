@@ -35,13 +35,13 @@ public class UserController {
         return userRepository.findAll();
     }
 
-    @PostMapping("/userRegistration")
-    public String userRegistration(@RequestBody UserRegisterCommand command) {
-        try {
-            commandService.userRegistration(command);
-            return "User registered successfully!";
-        } catch (Exception e) {
-            return "Error registering user: " + e.getMessage();
-        }
-    }
+    // @PostMapping("/authenticate/register")
+    // public String userRegistration(@RequestBody UserRegisterCommand command) {
+    //     try {
+    //         commandService.userRegistration(command);
+    //         return "User registered successfully!";
+    //     } catch (Exception e) {
+    //         return "Error registering user: " + e.getMessage();
+    //     }
+    // }
 }
