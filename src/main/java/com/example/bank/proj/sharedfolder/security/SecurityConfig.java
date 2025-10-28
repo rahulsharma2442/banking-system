@@ -30,7 +30,7 @@ public class SecurityConfig {
 @Bean
 public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
     System.out.println("🛡️ Configuring security filter chain...");
-
+    http.cors();
     http
         .csrf(csrf -> {
             csrf.disable();

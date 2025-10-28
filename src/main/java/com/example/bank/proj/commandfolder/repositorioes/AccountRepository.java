@@ -27,4 +27,6 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     })
     @Query("SELECT a FROM Account a WHERE a.accountNumber=:accountNumber")
     Account findAccountForUpdate(@Param("accountNumber") String accountNumber);
+
+    List<Account> findByUserIdOrderByCreatedAtDesc(Long userId);
 }

@@ -119,6 +119,7 @@ public class CommandServiceImp implements CommandService {
 
     @Override
     public SuccessMessage userRegistration(UserRegisterCommand command) {
+        try{
         String token = UUID.randomUUID().toString()+"-"+LocalDateTime.now().toString();
         command.setPassword(passwordEncoder.encode(command.getPassword()));
         User user = new User();
@@ -136,7 +137,12 @@ public class CommandServiceImp implements CommandService {
          
         userRepository.save(user);
         // emailService.sendRegistrationEmail(user.getEmail(), "http://localhost:8080/api/v1/command/verify-email?token="+token);
-        return new SuccessMessage("User registered successfully please verify your email", user, true, 201);
+        return new SuccessMessage("User registered successfully.", user, true, 201);
+
+        }
+        catch(Exception E){
+            return new SuccessMessage("Error registering user: " + E.getMessage(), null, false, 500);
+        }
     }
 
     @Override
@@ -151,13 +157,13 @@ public class CommandServiceImp implements CommandService {
             if (Boolean.FALSE.equals(isNew)) {
                 return new SuccessMessage("Transaction already processed", null, false, 409);
             }
-
+            System.out.println("Idempotency check passed for transactionId: " + transactionId);
             // Pessimistic lock on account
             Account account = accountRepository.findAccountForUpdate(accountNumber);
             if (account == null) {
                 return new SuccessMessage("Account not found", null, false, 404);
             }
-
+            System.out.println("Account found: " + accountNumber);
             // Update balance
             account.setBalance(account.getBalance().add(amount));
             account.setUpdatedAt(LocalDateTime.now().toString());
@@ -184,7 +190,7 @@ public class CommandServiceImp implements CommandService {
             eventStore.setAggregateType("Account");
             eventStoreRepository.save(eventStore);
 
-            // Publish event
+            // Publish event  
             eventPublisher.publishAccountEvent("depositEvents", event);
 
             return new SuccessMessage("Amount deposited successfully", account, true, 200);
@@ -415,4 +421,21 @@ public class CommandServiceImp implements CommandService {
         }
     }
 
+
+    @Override
+    public SuccessMessage getAccountInfoForUser( Long userId){
+        try{
+        List<Account> accounts = accountRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        if(accounts.isEmpty()){
+            return new SuccessMessage("No accounts found for this user", null, false, 404);
+        }
+
+        // If accounts are found, return them
+        return new SuccessMessage("Accounts retrieved successfully", accounts, true, 200);
+        }
+        catch(Exception e){
+            e.printStackTrace();
+            return new SuccessMessage("Error occurred: " + e.getMessage(), null, false, 500);
+        }
+    }
 }
